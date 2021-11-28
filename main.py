@@ -9,7 +9,7 @@ from detail import detailWindow
 class mainWindow(QMainWindow, Ui_MainWindow,QObject):
     send_result_to_detail_window = pyqtSignal(list)
     send_pos_to_detail_window = pyqtSignal(tuple)
-
+    send_threshold_to_detail_window = pyqtSignal(float)
     def __init__(self):
         QMainWindow.__init__(self)
         Ui_MainWindow.__init__(self)
@@ -19,6 +19,7 @@ class mainWindow(QMainWindow, Ui_MainWindow,QObject):
         self.detail = detailWindow()
         self.send_result_to_detail_window.connect(self.detail.receive_result)
         self.send_pos_to_detail_window.connect(self.detail.receive_click_event)
+        self.send_threshold_to_detail_window.connect(self.detail.receive_threshold)
 
         Layer.output_height = self.image_here.height()
         Layer.output_width = self.image_here.width()
@@ -41,9 +42,6 @@ class mainWindow(QMainWindow, Ui_MainWindow,QObject):
         self.scene = QGraphicsScene()
         self.image_here.setScene(self.scene)
 
-
-        print(self.image_here.height())
-        print(self.image_here.width())
         self.timer = QTimer()
         self.timer.timeout.connect(self.onTimeoutChangeFrame)
         # 切换到第一张图片
@@ -86,12 +84,15 @@ class mainWindow(QMainWindow, Ui_MainWindow,QObject):
 
         self.CenterTrackLayer = CenterTrackLyaer(id, self.CenterTrackScore.value(),
                                                  self.CenterTrackCombox.currentIndex())
+        # 发送信号
+        self.send_result_to_detail_window.emit(self.CenterTrackLayer.results)
+        self.send_threshold_to_detail_window.emit(self.CenterTrackLayer.condition["threshold"])
+
         self.PointCloudLayer = PointCloudLayer(id + 1, self.PointCloud_show_box.isChecked())
 
         # 拼接所有图层
         self.update(clean=False)
 
-        self.send_result_to_detail_window.emit(self.CenterTrackLayer.results)
 
     def update(self, clean=True):
         self.display = BackGroundLayer(self.img) if clean else self.display
@@ -119,6 +120,7 @@ class mainWindow(QMainWindow, Ui_MainWindow,QObject):
 
     def OnCenterTrackScoreChange(self, val):
         self.CenterTrackLayer.condition["threshold"] = val
+        self.send_threshold_to_detail_window.emit(val)
         self.update()
 
     def onCenterTrackComboxChange(self, val):

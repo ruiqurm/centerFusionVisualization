@@ -22,6 +22,7 @@ class detailWindow(QMainWindow, Ui_Form, QObject):
         self.PointsEuclideanDist = lambda x1, y1, x2, y2: np.sqrt(np.square(x1 - x2) + np.square(y1 - y2))
         self.EuclideanDist = lambda x, y, z: np.sqrt(x ** 2 + y ** 2 + z ** 2)
         self.header = ["id", "score", "类别", "位置", "距离", "rot_y", "alpha角", "速度向量", "速度", "在图中中心点"]
+        self.threshold = 0.5
 
     def toStr(self, x):
         if (isinstance(x, np.float64) or isinstance(x, np.float32) or isinstance(x, float)):
@@ -35,8 +36,11 @@ class detailWindow(QMainWindow, Ui_Form, QObject):
         self.results = data
         self.update_table()
 
+    def receive_threshold(self, data: float):
+        self.threshold = data
+
     def receive_click_event(self, pos):
-        p = self.closest_point(pos, 0.5)
+        p = self.closest_point(pos, self.threshold)
         if p != -1:
             self.tableView.selectRow(p)
 
@@ -90,9 +94,9 @@ class detailWindow(QMainWindow, Ui_Form, QObject):
         for i in range(self.model.rowCount(self.tableView.rootIndex())):
             index = int(self.model.index(i, 0, self.tableView.rootIndex()).data())
             if (self.results[index]["score"] < threshold): continue
-            lx,ly,rx,ry = self.results[index]["bbox"]
-            x,y = pos
-            if (x<lx or y<ly or x>rx or y>ry):continue
+            lx, ly, rx, ry = self.results[index]["bbox"]
+            x, y = pos
+            if (x < lx or y < ly or x > rx or y > ry): continue
             _ = self.PointsEuclideanDist(*self.results[index]["ct"], *pos)
             if (_ < minn[1]):
                 minn = i, _
