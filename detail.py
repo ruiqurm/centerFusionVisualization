@@ -21,7 +21,7 @@ class detailWindow(QMainWindow, Ui_Form, QObject):
         self.tableView.setModel(self.model)
         self.PointsEuclideanDist = lambda x1, y1, x2, y2: np.sqrt(np.square(x1 - x2) + np.square(y1 - y2))
         self.EuclideanDist = lambda x, y, z: np.sqrt(x ** 2 + y ** 2 + z ** 2)
-        self.header = ["score", "类别", "位置", "距离", "rot_y", "alpha角", "速度向量", "速度", "在图中中心点"]
+        self.header = ["id", "score", "类别", "位置", "距离", "rot_y", "alpha角", "速度向量", "速度", "在图中中心点"]
 
     def toStr(self, x):
         if (isinstance(x, np.float64) or isinstance(x, np.float32) or isinstance(x, float)):
@@ -36,7 +36,10 @@ class detailWindow(QMainWindow, Ui_Form, QObject):
         self.update_table()
 
     def receive_click_event(self, pos):
-        self.tableView.selectRow(self.closest_point(pos,0.5))
+        p = self.closest_point(pos, 0.5)
+        if p != -1:
+            self.tableView.selectRow(p)
+
     def onHeaderClick(self, x: int):
         if self.onHeaderClickRecord[x] == 0 or self.onHeaderClickRecord[x] == -1:
             self.model.sort(x, Qt.AscendingOrder)
@@ -50,16 +53,18 @@ class detailWindow(QMainWindow, Ui_Form, QObject):
         self.model.setHorizontalHeaderLabels(self.header)
         self.onHeaderClickRecord = [0] * len(self.header)  # 0表示未排序，1表示升序，-1表示降序
         self.tableView.horizontalHeader().sectionClicked.connect(self.onHeaderClick)
-        self.tableView.setColumnWidth(0, 50)
-        self.tableView.setColumnWidth(2, 150)
-        self.tableView.setColumnWidth(6, 150)
+        self.tableView.setColumnWidth(1, 50)
+        self.tableView.setColumnWidth(3, 150)
+        self.tableView.setColumnWidth(7, 150)
+        self.tableView.setColumnHidden(0, True)
 
-        for result in self.results:
+        for i, result in enumerate(self.results):
             try:
                 self.model.appendRow(
                     (
                         QStandardItem(self.toStr(i)) for i in
                         (
+                            i,
                             result["score"],
                             CENTERFUSION_CLASS_NAME[result["class"] - 1],
                             result["loc"],
@@ -75,16 +80,20 @@ class detailWindow(QMainWindow, Ui_Form, QObject):
             except Exception as e:
                 print(e)
 
-    def closest_point(self, pos,threshold):
+    def closest_point(self, pos, threshold):
         """
         找到最接近的点
         :param pos:
         :return:
         """
-        minn = (0, np.inf)
-        for i, result in enumerate(self.results):
-            if(result["score"]<threshold):continue
-            _ = self.PointsEuclideanDist(*result["ct"], *pos)
+        minn = (-1, np.inf)
+        for i in range(self.model.rowCount(self.tableView.rootIndex())):
+            index = int(self.model.index(i, 0, self.tableView.rootIndex()).data())
+            if (self.results[index]["score"] < threshold): continue
+            lx,ly,rx,ry = self.results[index]["bbox"]
+            x,y = pos
+            if (x<lx or y<ly or x>rx or y>ry):continue
+            _ = self.PointsEuclideanDist(*self.results[index]["ct"], *pos)
             if (_ < minn[1]):
-                minn = i,_
+                minn = i, _
         return minn[0]
